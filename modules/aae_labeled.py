@@ -1,5 +1,5 @@
-from aae_util import BasicAdversarialAutoencoder
-from aae_util import DenseNetwork
+from .aae_util import BasicAdversarialAutoencoder
+from .aae_util import DenseNetwork
 import tensorflow as tf
 from numpy.random import RandomState
 import numpy as np

@@ -241,8 +241,8 @@ class BasicAdversarialAutoencoder(object):
 			output.values.append(image)
 			output.anomaly_labels.append(0)
 			output.is_test.append(0)
-		return vectors, output.values
-		#return output
+		# return vectors, output.values
+		return output
 
 	def sample_latent_space(self, distribution=None, size=50, random_seed=1):
 		vectors = np.random.randn(size, self.z_dim)

@@ -1,11 +1,6 @@
-from modules.generator import GeneratorToy1
-from modules.generator import GeneratorToy2
-from modules.generator import GeneratorToy3
-from modules.generator import GeneratorToy4
-from modules.generator import GeneratorToy5
-from modules.generator import GeneratorToy6
-from modules.generator import GeneratorToy7
-from modules.generator import GeneratorToy8
+from modules.generator import GeneratorDatasetA
+from modules.generator import GeneratorDatasetB
+from modules.generator import GeneratorDatasetC
 from modules.generator import Dataset
 import numpy as np
 import json
@@ -21,9 +16,7 @@ class AnomalyDetectorBundle(object):
 
 	def __init__(self, random_seed=1, outlier_fraction=0.05):
 		self._detectors = dict()
-		self._detectors['One-class SVM'] = OneClassSVM(nu=outlier_fraction)
 		self._detectors['Isolation Forest'] = IsolationForest(contamination=outlier_fraction)
-		#self._detectors['Local Outlier Factor'] = LocalOutlierFactor(n_neighbors=20, contamination=outlier_fraction)
 		self.random_seed = random_seed
 
 	@property
@@ -46,31 +39,31 @@ class AnomalyDetectorBundle(object):
 		assert isinstance(value, (int, float)) and value <= 1.
 		self._outlier_fraction = value
 		for detector_type, detector in self._detectors.items():
-			if detector_type == "One-class SVM":
-				detector.nu = self.outlier_fraction
-			elif detector_type == "Local Outlier Factor":
-				detector.contamination = min(0.5, self.outlier_fraction)
-			else:
-				detector.contamination = self.outlier_fraction
+			detector.contamination = self.outlier_fraction
 
 	def fit(self, dataset):
 		for detector_type, detector in self._detectors.items():
 			detector.fit(dataset)
 
-	def predict(self, dataset, lof_dataset):
+	def predict(self, dataset):
 		results = dict()
 		for detector_type, detector in self._detectors.items():
-			if detector_type == "Local Outlier Factor":
-				results[detector_type] = detector.fit_predict(lof_dataset)
-			else:
-				results[detector_type] = detector.predict(dataset)
+			results[detector_type] = detector.predict(dataset)
 		return results
 
 class AnomalyDetectorExperiment(object):
 
-	def __init__(self, size=1000, contamination=0.05, outlier_fractions=np.arange(0.01, 0.7, 0.04)):
+	def __init__(self, dataset='A', size=1000, contamination=0.05, outlier_fractions=np.arange(0.01, 0.7, 0.04)):
 		self.outlier_fractions = outlier_fractions
-		self._generator = GeneratorToy3()
+		if dataset == 'A':
+			self._generator = GeneratorDatasetA()
+		elif dataset == 'B':
+			self._generator = GeneratorDatasetB()
+		elif dataset == 'C':
+			self._generator = GeneratorDatasetC()
+		else:
+			raise TypeError('Unknown dataset type')
+			quit()
 		self._detectors = AnomalyDetectorBundle()
 		self.results = []
 		self.size = size
@@ -132,7 +125,7 @@ class AnomalyDetectorExperiment(object):
 		if artificial_sampling == 'none':
 			training_data = original_training_data.values
 			#lof_test_data = original_training_data.merge_with(test_data)
-			lof_test_data = Dataset()
+			#lof_test_data = Dataset()
 		else:
 			if artificial_sampling == 'distribution':
 				if self.aae is None:
@@ -141,7 +134,7 @@ class AnomalyDetectorExperiment(object):
 				artificial_training_data = self.aae.generate(mode='distribution', size=artificial_sample_size, distribution=artificial_sample_distribution, random_seed=random_seed)
 			training_data = np.concatenate((original_training_data.values, artificial_training_data.values))
 			#lof_test_data = original_training_data.merge_with(test_data).merge_with(artificial_training_data)
-			lof_test_data = Dataset()
+			#lof_test_data = Dataset()
 		
 		self._detectors.random_seed = random_seed
 
@@ -150,34 +143,23 @@ class AnomalyDetectorExperiment(object):
 			print("{}/{} Outlier Fraction: {}".format(i + 1, len(self.outlier_fractions), fraction))
 			self._detectors.outlier_fraction = fraction
 			self._detectors.fit(training_data)
-			results = self._detectors.predict(test_data.values, lof_test_data.values)
-			self.update_results(results, test_data.anomaly_labels, lof_test_data)
+			results = self._detectors.predict(test_data.values)
+			self.update_results(results, test_data.anomaly_labels)
 
 		return self.results[-1]
 
-	def update_results(self, detector_predictions, labels, lof_dataset):
+	def update_results(self, detector_predictions, labels):
 
 		for detector_type, predictions in detector_predictions.items():
 			stats = dict()
-			if detector_type == 'Local Outlier Factor':
-				assert len(predictions) == lof_dataset.num_examples
-				stats['TP'] = ((predictions == lof_dataset.anomaly_labels) * (predictions == -1) * lof_dataset.is_test).sum()
-				stats['TN'] = ((predictions == lof_dataset.anomaly_labels) * (predictions == 1) * lof_dataset.is_test).sum()
-				stats['FP'] = ((predictions != lof_dataset.anomaly_labels) * (predictions == -1) * lof_dataset.is_test).sum()
-				stats['FN'] = ((predictions != lof_dataset.anomaly_labels) * (predictions == 1) * lof_dataset.is_test).sum()
-				assert stats['TP'] + stats['TN'] + stats['FP'] + stats['FN'] == sum(lof_dataset.is_test)
-			else:
-				assert len(predictions) == len(labels)
-				stats['TP'] = ((predictions == labels) * (predictions == -1)).sum()
-				stats['TN'] = ((predictions == labels) * (predictions == 1)).sum()
-				stats['FP'] = ((predictions != labels) * (predictions == -1)).sum()
-				stats['FN'] = ((predictions != labels) * (predictions == 1)).sum()
-				assert stats['TP'] + stats['TN'] + stats['FP'] + stats['FN'] == len(predictions)
+			assert len(predictions) == len(labels)
+			stats['TP'] = ((predictions == labels) * (predictions == -1)).sum()
+			stats['TN'] = ((predictions == labels) * (predictions == 1)).sum()
+			stats['FP'] = ((predictions != labels) * (predictions == -1)).sum()
+			stats['FN'] = ((predictions != labels) * (predictions == 1)).sum()
+			assert stats['TP'] + stats['TN'] + stats['FP'] + stats['FN'] == len(predictions)
 
-			if detector_type == 'One-class SVM':
-				stats['Contamination'] = self._detectors._detectors[detector_type].nu
-			else:
-				stats['Contamination'] = self._detectors._detectors[detector_type].contamination
+			stats['Contamination'] = self._detectors._detectors[detector_type].contamination
 
 			if (stats['TP'] + stats['FP']) == 0:
 				stats['Precision'] = 1.

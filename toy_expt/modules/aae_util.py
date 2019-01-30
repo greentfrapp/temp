@@ -10,7 +10,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import datetime
-from modules.generator import Dataset
+from modules.toy_generator import Dataset
 
 
 # DenseNetwork class creates a network with defined nodes, activations and layer names

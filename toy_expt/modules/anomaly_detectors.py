@@ -1,7 +1,7 @@
-from modules.generator import GeneratorDatasetA
-from modules.generator import GeneratorDatasetB
-from modules.generator import GeneratorDatasetC
-from modules.generator import Dataset
+from modules.toy_generator import GeneratorDatasetA
+from modules.toy_generator import GeneratorDatasetB
+from modules.toy_generator import GeneratorDatasetC
+from modules.toy_generator import Dataset
 import numpy as np
 import json
 import matplotlib.pyplot as plt
